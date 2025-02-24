@@ -1,0 +1,90 @@
+Creating a Dockerfile:
+
+FROM node:16
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
+CMD ["node", "server.js"]
+
+
+Create Kubernetes.yaml file for deployment.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-node-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: my-node-app
+  template:
+    metadata:
+      labels:
+        app: my-node-app
+    spec:
+      containers:
+      - name: my-node-app
+        image: my-node-app:latest
+        ports:
+        - containerPort: 3000
+
+Creating Rollback
+
+#!/bin/bash
+echo "Rolling back deployment..."
+kubectl rollout undo deployment my-node-app
+
+
+
+####### This will be the CI/CD Pipeline
+
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+      
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y curl
+          curl -fsSL https://get.docker.com | sh
+          sudo usermod -aG docker $USER
+      
+      - name: Set up Minikube
+        run: |
+          curl -Lo minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+          chmod +x minikube
+          sudo mv minikube /usr/local/bin/
+          minikube start --driver=docker
+      
+      - name: Build and Load Docker Image
+        run: |
+          docker build -t my-node-app:latest .
+          minikube image load my-node-app:latest
+      
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+      
+      - name: Deploy to Kubernetes
+        run: |
+          kubectl apply -f kubernetes.yaml || bash rollback.sh
+      
+      - name: Verify Deployment
+        run: |
+          kubectl rollout status deployment my-node-app || bash rollback.sh
+

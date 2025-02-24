@@ -1,0 +1,25 @@
+variable "aws_region" {
+  description = "AWS region for deployment"
+  default     = "us-east-1"
+}
+
+variable "instance_type" {
+  description = "EC2 instance type"
+  default     = "t2.micro"
+}
+
+variable "environment" {
+  description = "Deployment environment (dev, prod, etc.)"
+  default     = "dev"
+}
+
+variable "key_name" {
+  description = "SSH Key Pair for EC2 access"
+  default     = "my-key"
+}
+
+variable "ami_id" {
+  description = "Amazon Machine Image ID"
+  default     = "ami-0c55b159cbfafe1f0"  # Ubuntu 18.04 (Replace with region-specific AMI)
+}
+

@@ -1,0 +1,109 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: python-app
+  labels:
+    app: python-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: python-app
+  template:
+    metadata:
+      labels:
+        app: python-app
+    spec:
+      containers:
+      - name: python-app
+        image: python:3.9-slim
+        ports:
+        - containerPort: 80
+        env:
+        - name: MESSAGE
+          value: "Hello from Python App!"
+        command: ["/bin/sh", "-c"]
+        args:
+          - echo "Starting Python App";
+            python -m http.server 80
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "200m"
+            memory: "256Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: python-app-service
+  labels:
+    app: python-app
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 80
+  selector:
+    app: python-app
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: python-app-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - host: python-app.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: python-app-service
+            port:
+              number: 80
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: python-app-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: python-app
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 50
+
+
+2. Steps to Deploy:
+
+kubectl apply -f python-app-deployment.yaml
+
+3. Verify Deployment:
+
+kubectl get deployment,pod,service,ingress,hpa
+
+4. Access the Application:
+
+<INGRESS_IP> python-app.example.com
+
+5. Test Auto-Scaling:
+Generate load on the application to trigger scaling:
+
+kubectl run -i --tty load-generator --rm --image=busybox --restart=Never -- /bin/sh -c "while true; do wget -q -O- http://python-app-service; done"
+
+- Monitor the scaling behavior:
+kubectl get hpa python-app-hpa --watch
